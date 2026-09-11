@@ -2,6 +2,14 @@
 
 Use this file by branch. Confirm commands and configuration against the installed Wrangler version and current Cloudflare documentation before you apply them.
 
+When you fetch an official reference URL, request its Markdown representation:
+
+```http
+Accept: text/markdown
+```
+
+For example: `curl -H 'Accept: text/markdown' <URL>`.
+
 ## Application shape
 
 | Need | Starting shape | Selection signal |
