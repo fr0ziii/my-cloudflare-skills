@@ -1,0 +1,32 @@
+name: Skill improvement
+description: Propose new or improved skill behavior
+title: "feature: "
+labels:
+  - enhancement
+body:
+  - type: input
+    id: skill
+    attributes:
+      label: Skill
+      placeholder: build-on-cloudflare or a proposed skill name
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or agent problem should this change solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: Describe observable agent behavior after the change.
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Primary sources
+      description: Link official documentation or specifications that support the proposal.

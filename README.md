@@ -1,24 +1,59 @@
-# my-cloudflare-skills
+# My Cloudflare Skills
 
-Agent skills for building and operating applications on Cloudflare.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Skills
+Reusable [Agent Skills](https://agentskills.io/) for designing, building, securing, and releasing applications on the Cloudflare Developer Platform.
 
-| Skill | Purpose |
-| --- | --- |
-| [`build-on-cloudflare`](skills/build-on-cloudflare/SKILL.md) | Design, build, secure, test, and release a Cloudflare application. |
+## Available skills
+
+### `build-on-cloudflare`
+
+A 12-phase workflow for Cloudflare applications. It covers product boundaries, runtime selection, configuration, data ownership, caching, security, background work, public interfaces, observability, billing, staging, and production release.
+
+- [Skill instructions](skills/build-on-cloudflare/SKILL.md)
+- [Cloudflare reference](skills/build-on-cloudflare/REFERENCE.md)
 
 ## Install
 
-Clone this repository, then copy the skill into an Agent Skills directory:
+Clone the repository:
 
 ```sh
 git clone https://github.com/fr0ziii/my-cloudflare-skills.git
+```
+
+Copy the skill to the directory that your agent uses. For an Agent Skills-compatible global directory:
+
+```sh
 mkdir -p ~/.agents/skills
 cp -R my-cloudflare-skills/skills/build-on-cloudflare ~/.agents/skills/
 ```
 
-You can also use the skill directly from the cloned path if your agent supports custom skill locations.
+For one project:
+
+```sh
+mkdir -p .agents/skills
+cp -R /path/to/my-cloudflare-skills/skills/build-on-cloudflare .agents/skills/
+```
+
+Restart the agent if it discovers skills only at startup. If the agent exposes skills as commands, invoke `build-on-cloudflare` by its skill name.
+
+> [!IMPORTANT]
+> Skills can tell an agent to run commands and change cloud resources. Review the instructions before use and keep deployment approval rules in effect.
+
+## Repository layout
+
+```text
+skills/
+└── build-on-cloudflare/
+    ├── SKILL.md
+    └── REFERENCE.md
+```
+
+Each skill follows the [Agent Skills specification](https://agentskills.io/specification).
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before you propose a change. Follow the [security policy](SECURITY.md) for sensitive reports.
 
 ## License
 

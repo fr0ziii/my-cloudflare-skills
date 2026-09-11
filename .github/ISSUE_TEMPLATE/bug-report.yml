@@ -1,0 +1,43 @@
+name: Skill bug
+description: Report incorrect or unsafe skill behavior
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, personal data, or private account information. Use the security policy for sensitive reports.
+  - type: input
+    id: skill
+    attributes:
+      label: Skill
+      placeholder: build-on-cloudflare
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and version
+      description: Name the agent or harness that loaded the skill.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: Explain what the agent did and why it is incorrect.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide a minimal prompt and relevant non-sensitive context.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
