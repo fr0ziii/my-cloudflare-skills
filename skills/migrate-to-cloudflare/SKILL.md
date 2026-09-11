@@ -47,7 +47,7 @@ Classify every item as `compatible`, `change required`, `blocked`, or `unknown`.
 
 Map each responsibility to the smallest suitable Cloudflare service. Define request routing, static assets, server rendering, bindings, data stores, coordination, asynchronous work, observability, and environment isolation.
 
-Keep bindings at the composition root and pass narrow services into application modules. Preserve one source of truth for each kind of data. When `build-on-cloudflare` is available, use it to validate the target design.
+Keep bindings at the composition root and pass narrow services into application modules. Preserve one source of truth for each kind of data. When `build-on-cloudflare` is available, consult only the phases relevant to the selected target. This migration route remains authoritative and controls the release scope.
 
 **Exit condition:** Every target service has a stated invariant, ownership boundary, failure behavior, and separate staging resource.
 
@@ -94,7 +94,7 @@ Shift traffic in measured steps when the platform and application permit it. At 
 
 If a threshold fails, stop the shift and run the prepared rollback or forward-fix procedure. Remember that a code rollback does not roll back data or bound resources.
 
-**Exit condition:** The target owns the planned traffic and writes, live metrics are healthy, and rollback remains available for the agreed observation period.
+**Exit condition:** The selected cutover is complete for the migrated responsibilities, live metrics are healthy, and rollback remains available for the agreed observation period.
 
 ## Phase 8: Stabilize and retire the old path
 
@@ -102,6 +102,6 @@ Observe the target for the agreed soak period. Reconcile final state, investigat
 
 Remove temporary routes, synchronization, flags, credentials, and migration jobs after their rollback need ends. Retain or delete old data according to the recovery, legal, and privacy policy. Remove old infrastructure only after traffic and state ownership are proven absent.
 
-Report implementation, publication, staging, production, data authority, rollback readiness, and retirement as separate states.
+Report implementation, publication, staging, production, migrated ownership, rollback readiness, and retirement as separate states. Include the current-to-target map, unresolved risks, blockers, and accepted differences.
 
-**Exit condition:** The target is the verified system of record, temporary migration mechanisms are removed, and retained legacy resources have an owner and expiry condition.
+**Exit condition:** The target owns the migrated responsibilities, temporary migration mechanisms are removed, and retained legacy resources have an owner and expiry condition.

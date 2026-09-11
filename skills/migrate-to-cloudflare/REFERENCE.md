@@ -41,14 +41,23 @@ Use this matrix for each dependency:
 | Long-lived process | Does correctness depend on one process staying alive? | Move durable state and work to Durable Objects, Queues, or Workflows. |
 | Mutable global state | Can another isolate handle the next request? | Treat globals as disposable optimization only. |
 | Database connection | Does the driver and network path work within runtime limits? | Use D1, Hyperdrive, HTTP access, or a supported driver after a deployed test. |
-| Background callback | Must work complete after the response or survive failure? | Select `waitUntil`, Queues, or Workflows from the required guarantee. |
+| Background callback | Must the work complete after the response, or must it survive failure? | Select `waitUntil`, Queues, or Workflows from the required guarantee. |
 | Server listener | Can a Fetch handler represent the route and protocol? | Adapt the application to request handlers or a supported framework adapter. |
 | WebSocket state | Do connections need shared coordination? | Evaluate Durable Objects as the connection and state boundary. |
 | Provider middleware | Which headers, rewrites, redirects, or edge rules does it imply? | Reproduce the observable contract with Worker routes and explicit code. |
 
+### Source-platform checks
+
+| Source | Inventory before mapping | Prove on Cloudflare |
+| --- | --- | --- |
+| Vercel | Functions, Edge Middleware, redirects, rewrites, image handling, cron, ISR or revalidation, preview variables, and managed data services | Framework adapter, route precedence, cache invalidation, image behavior, schedules, environment isolation, and replacement data guarantees |
+| Netlify | Functions, Edge Functions, redirect and header rules, Forms, Identity, Blobs, scheduled functions, and background functions | Route and header parity, identity transition, storage ownership, execution duration, and asynchronous delivery behavior |
+| AWS | Lambda event sources, API Gateway mappings, IAM policy, S3, SQS, EventBridge, Step Functions, DynamoDB, and network access | Event shape, authorization, retry, ordering, concurrency, workflow recovery, storage semantics, and outbound connectivity |
+| Node.js server | Listener lifecycle, middleware order, Node.js APIs, native addons, local files, WebSockets, database drivers, and process state | Fetch-handler behavior, package compatibility, disposable isolate behavior, connection strategy, and state externalization |
+
 A successful bundle is not compatibility proof. Exercise imported APIs and external connections in a deployed probe.
 
-Official references: [Node.js compatibility](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), [Workers runtime APIs](https://developers.cloudflare.com/workers/runtime-apis/), [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [Framework guides](https://developers.cloudflare.com/workers/framework-guides/), [Local development](https://developers.cloudflare.com/workers/local-development/).
+Official references: [Vercel Functions](https://vercel.com/docs/functions), [Netlify Functions](https://docs.netlify.com/build/functions/overview/), [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html), [Amazon API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html), [Node.js APIs](https://nodejs.org/api/), [Node.js compatibility](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), [Workers runtime APIs](https://developers.cloudflare.com/workers/runtime-apis/), [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [Framework guides](https://developers.cloudflare.com/workers/framework-guides/), [Local development](https://developers.cloudflare.com/workers/local-development/).
 
 ## Phase 3: Target mapping
 
@@ -67,8 +76,6 @@ These mappings are candidates, not automatic equivalents. Confirm semantics befo
 | Step function or durable job | Workflows | Step replay, waits, retries, limits, external side effects |
 | API gateway or reverse proxy | Worker routing | Authentication, rate limits, headers, body limits, observability |
 | WebSocket coordinator | Durable Objects | Connection ownership, hibernation, reconnect, state recovery |
-
-For the selected design, complete the 12 phases in `build-on-cloudflare` when that skill is installed. Keep this migration skill focused on compatibility, transition, and cutover.
 
 Official references: [Workers](https://developers.cloudflare.com/workers/), [Static Assets](https://developers.cloudflare.com/workers/static-assets/), [D1](https://developers.cloudflare.com/d1/), [Hyperdrive](https://developers.cloudflare.com/hyperdrive/), [Workers KV](https://developers.cloudflare.com/kv/), [Durable Objects](https://developers.cloudflare.com/durable-objects/), [R2](https://developers.cloudflare.com/r2/), [Queues](https://developers.cloudflare.com/queues/), [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/), [Workflows](https://developers.cloudflare.com/workflows/).
 
@@ -165,7 +172,7 @@ Shadow only safe requests. Block writes, callbacks, emails, payments, and destru
 
 Failure tests must cover dependency timeout, malformed input, partial data, duplicate event, exhausted limit, stale cache, and target rollback where applicable.
 
-Exit with a signed comparison report that lists accepted differences and unresolved blockers.
+Exit with a comparison report that lists accepted differences, unresolved blockers, and the migration owner who accepts each difference.
 
 Official references: [Workers testing](https://developers.cloudflare.com/workers/testing/), [Workers observability](https://developers.cloudflare.com/workers/observability/), [Preview URLs](https://developers.cloudflare.com/workers/configuration/previews/).
 
@@ -219,15 +226,16 @@ Retirement check:
 
 ### Final report
 
-Report these states separately:
+Consolidate these results in the final report:
 
-1. compatibility assessment;
-2. target architecture;
-3. data migration and authority;
-4. staging verification;
-5. traffic cutover;
-6. production verification;
-7. rollback readiness;
-8. legacy retirement.
+1. current architecture and measured baseline;
+2. compatibility matrix, blockers, and open questions;
+3. current-to-target architecture and service mapping;
+4. migration slices, decisions, risks, and owners;
+5. data and identity strategy with authority transitions;
+6. staging evidence and accepted differences;
+7. cutover steps, thresholds, and rollback procedure;
+8. production verification and migrated ownership;
+9. legacy retirement state and remaining expiry conditions.
 
 A deployed Worker does not prove migration completion. Completion requires verified traffic, state authority, and removal or explicit ownership of the old path.
