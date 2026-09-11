@@ -1,6 +1,6 @@
 # Cloudflare application reference
 
-Use this file by branch. Confirm commands and configuration against the installed Wrangler version and current Cloudflare documentation before you apply them.
+Use the sections for the active phases. Confirm commands and configuration against the installed Wrangler version and current Cloudflare documentation before you apply them.
 
 When you fetch an official reference URL, request its Markdown representation:
 
@@ -10,189 +10,312 @@ Accept: text/markdown
 
 For example: `curl -H 'Accept: text/markdown' <URL>`.
 
-## Application shape
+Keep these rules across all phases:
+
+- Make public files explicit.
+- Keep one source of truth for each kind of data.
+- Isolate staging from production.
+- Commit configuration and keep secret values encrypted or local.
+- Prefer a small, direct design over an unnecessary abstraction.
+- Verify deployed behavior instead of treating a successful command as proof.
+
+## Phase 1: Product boundary
+
+Record the following facts before selecting services:
+
+| Concern | Required decision |
+| --- | --- |
+| Product | Primary user, core task, public and private surfaces |
+| Delivery | Site, application, API, scheduled process, or combination |
+| Rendering | Static, server-rendered, interactive, or API-only |
+| Identity | Anonymous, browser session, API credential, organization, or combination |
+| Data | Consistency, query, retention, residency, and recovery needs |
+| Discovery | Search indexing, social previews, API documentation, agent access |
+| Commercial model | Free, subscription, one-time payment, metered API, or out of scope |
+| Release | Environments, approval boundary, target branch, rollback owner |
+
+A custom domain is not a scaffold dependency. A new product can prove its first deployment on a `workers.dev` host, then attach production and staging domains when the routes are ready.
+
+## Phase 2: Runtime and scaffold
 
 | Need | Starting shape | Selection signal |
 | --- | --- | --- |
-| Static files with no request-time logic | Workers Static Assets | The build output fully defines every public response. |
-| Small site, webhook, or API | Worker with a small router or direct handlers | Request-time logic is small and UI state is limited. |
-| Interactive product with pages that must be indexed | Framework with supported SSR on Workers | The product needs UI composition, routing, and server-rendered HTML. |
+| Static files with no request-time logic | Workers Static Assets | Build output defines every response. |
+| Small site, webhook, or API | Direct Worker or small router | Request-time logic is limited and UI state is small. |
+| Interactive pages that need indexing | Framework with supported SSR | The product needs UI composition and server-rendered HTML. |
 | Stateful coordination | Worker plus Durable Objects | Requests for one entity need ordered access or live coordination. |
-| Durable multi-step operation | Worker plus Workflows | Work must resume after delays or failures across several steps. |
+| Durable multi-step operation | Worker plus Workflows | Work must resume across waits or failures. |
 
-Prefer a Worker entry point for dynamic traffic and an explicit static asset directory for public files. Route only the required paths through Worker code.
+Start a new project with the current official scaffold:
+
+```sh
+npm create cloudflare@latest
+```
+
+Keep browser assets in the configured static asset directory. Put command-line jobs and maintenance tools in separate entry points from the Worker runtime.
+
+Treat bindings as infrastructure dependencies. Convert them to domain-focused services at the composition root. Inner modules must receive only the capabilities they use.
+
+Checks:
+
+```sh
+npx wrangler dev
+npx wrangler deploy --dry-run
+```
+
+Use project scripts when they wrap these commands.
 
 Official references: [Workers](https://developers.cloudflare.com/workers/), [Static Assets](https://developers.cloudflare.com/workers/static-assets/), [Framework guides](https://developers.cloudflare.com/workers/framework-guides/), [Workflows](https://developers.cloudflare.com/workflows/).
 
-## Data and work ownership
+## Phase 3: Environments, configuration, and secrets
 
-Select a service from the required guarantee, not from convenience.
-
-| Requirement | Service | Design consequence |
-| --- | --- | --- |
-| Relational records and transactions | D1 | Use migrations. Model indexes and query limits. Use Sessions when read replication needs sequential consistency. |
-| Read-heavy key/value data that can tolerate propagation delay | Workers KV | Treat values as cache, configuration, or derived snapshots. Keep revocation and payment truth elsewhere. |
-| Strongly coordinated state for one named entity | Durable Objects | Choose an object ID that matches the coordination boundary. Keep cross-object operations explicit. |
-| Files and large objects | R2 | Store metadata that needs relational queries in D1. Define retention and access rules. |
-| Asynchronous work | Queues | Make consumers idempotent. Record poison-message and retry behavior. |
-| Durable sequence with waits, retries, or approvals | Workflows | Make each step repeatable and keep external side effects idempotent. |
-| Event and usage aggregates | Analytics Engine | Design indexes and blobs for the queries that the product needs. Account for sampling in queries. |
-
-A binding is an infrastructure dependency. Convert it to a narrow application service at the composition root. This keeps request handlers and domain logic testable.
-
-Official references: [D1](https://developers.cloudflare.com/d1/), [D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/), [KV consistency](https://developers.cloudflare.com/kv/concepts/how-kv-works/), [Durable Objects](https://developers.cloudflare.com/durable-objects/), [R2](https://developers.cloudflare.com/r2/), [Queues](https://developers.cloudflare.com/queues/), [Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/).
-
-## Configuration and environments
-
-Use `wrangler.jsonc` or `wrangler.toml` as the deployment configuration source of truth. Include the generated Wrangler schema when the format supports it.
-
-Maintain at least one non-production environment for a public product. Give each environment separate stateful resources, routes, and secret values. Wrangler environment keys and bindings can be non-inheritable, so inspect the effective configuration for every environment.
+Use `wrangler.jsonc` or `wrangler.toml` as the deployment configuration source of truth. Include the Wrangler schema when the format and installed version support it.
 
 Configuration review:
 
 - Worker name, entry point, compatibility date, and compatibility flags are intentional.
-- Static asset directories contain only publishable files.
-- Bindings name the correct resource for the selected environment.
-- Preview and staging routes cannot write production data.
+- Asset directories contain only publishable files.
+- Dynamic route patterns run Worker code only where needed.
+- Bindings resolve to the correct resource in each environment.
+- Preview and staging cannot write production state.
 - Local secret files are ignored by Git.
-- Identifier values can be committed when they are not credentials.
-- Secret values use encrypted secrets, not plaintext `vars`.
-- Generated binding types are current.
+- Identifier values are distinguished from credentials.
+- Secret values use encrypted secrets instead of plaintext `vars`.
+- Generated binding types match the effective configuration.
+
+Wrangler environment fields and bindings can be non-inheritable. Inspect each environment instead of assuming it inherits top-level values.
 
 Useful commands:
 
 ```sh
 npx wrangler types
 npx wrangler dev --env staging
-npx wrangler deploy --env staging
 npx wrangler secret put SECRET_NAME --env staging
+npx wrangler deploy --env staging
 ```
-
-Run the equivalent package scripts when the project provides them.
 
 Official references: [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [Wrangler environments](https://developers.cloudflare.com/workers/wrangler/environments/), [Secrets](https://developers.cloudflare.com/workers/configuration/secrets/).
 
-## Caching and freshness
+## Phase 4: Data and work ownership
 
-Classify each response before you cache it:
+Select services from required guarantees:
+
+| Requirement | Service | Design consequence |
+| --- | --- | --- |
+| Relational records and transactions | D1 | Use migrations. Design indexes and query limits. Use Sessions when read replication needs sequential consistency. |
+| Read-heavy key/value data that tolerates propagation delay | Workers KV | Use for cache, configuration, or derived snapshots. Keep revocation and payment truth elsewhere. |
+| Coordinated state for one named entity | Durable Objects | Match the object ID to the coordination boundary. Keep cross-object work explicit. |
+| Files and large objects | R2 | Keep queryable relational metadata in D1. Define retention and access. |
+| Asynchronous delivery | Queues | Make consumers idempotent. Define retry and dead-letter behavior. |
+| Multi-step work with waits or recovery | Workflows | Make steps repeatable and external side effects idempotent. |
+| Product-event aggregates | Analytics Engine | Design indexes and blobs for required queries. Account for sampling. |
+
+For every binding, record:
+
+1. the invariant that selects it;
+2. the data or work it owns;
+3. consistency and failure behavior;
+4. retention and recovery behavior;
+5. staging and production resource names.
+
+Create a migration before the first D1 schema change. Test it against representative data and define whether recovery uses rollback or a forward fix.
+
+Official references: [D1](https://developers.cloudflare.com/d1/), [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/), [D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/), [KV consistency](https://developers.cloudflare.com/kv/concepts/how-kv-works/), [Durable Objects](https://developers.cloudflare.com/durable-objects/), [R2](https://developers.cloudflare.com/r2/), [Queues](https://developers.cloudflare.com/queues/), [Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/).
+
+## Phase 5: Caching and performance
+
+Classify every response before caching it:
 
 | Response class | Default policy |
 | --- | --- |
-| Personalized, authenticated, or authorization-dependent | `private, no-store` |
+| Personalized or authorization-dependent | `private, no-store` |
 | Public HTML that changes | Short browser lifetime and a separately selected edge lifetime |
-| Versioned static asset | Long public lifetime with immutable file names |
-| Public API response | Cache only when the key includes every response variant and invalidation is defined |
+| Content-addressed or versioned asset | Long public lifetime with immutable names |
+| Public API response | Shared cache only when the key covers every variant and invalidation is defined |
 
-Treat cache invalidation as part of the write path. Purge or replace cached data only after the authoritative write succeeds. If stale data is acceptable during an upstream failure, expose its age or stale state.
+A cache design must specify:
 
-Check behavior with response headers and repeated requests. A local cache test does not prove edge behavior.
+- all key inputs, including locale, encoding, and public variants;
+- browser and edge lifetimes;
+- invalidation after an authoritative write;
+- behavior while content is stale;
+- behavior when the origin or upstream source fails;
+- the metric that proves the cache helps.
+
+Purge or replace data only after its source-of-truth write succeeds. Mark served fallback data as stale when age affects user trust.
+
+Check deployed headers with repeated requests. Local cache behavior is not evidence of edge behavior.
 
 Official references: [Workers Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/), [Cache-Control](https://developers.cloudflare.com/cache/concepts/cache-control/), [Purge cache](https://developers.cloudflare.com/cache/how-to/purge-cache/).
 
-## Identity and abuse controls
+## Phase 6: Identity, authorization, and abuse
 
-Use an established identity protocol or provider. Keep session and entitlement state in a store that meets the required revocation behavior.
+Use an established identity protocol or provider. Store sessions and entitlements in a service that meets the required revocation behavior.
 
-For browser sessions:
+Browser-session checks:
 
-- generate unpredictable session identifiers;
-- set `HttpOnly`, `Secure`, `SameSite`, `Path`, and expiry attributes intentionally;
-- validate authorization on each protected action;
-- check the request origin for state-changing browser requests;
-- revoke the server-side session on logout or account disablement.
+- Session identifiers are unpredictable.
+- Cookies set `HttpOnly`, `Secure`, `SameSite`, `Path`, and expiry intentionally.
+- Each protected action validates identity and authorization.
+- State-changing browser requests validate their origin.
+- Logout and account disablement revoke server-side access.
 
-For API credentials:
+API-credential checks:
 
-- show a raw credential only when the product requires it;
-- store a one-way digest or a provider-managed credential;
-- scope credentials and record revocation;
-- apply limits by the identity that consumes capacity;
-- return stable `401` and `429` responses with recovery information.
+- Stored credentials use a one-way digest or provider-managed storage.
+- Credentials have scope, ownership, creation, and revocation records.
+- Limits apply to the identity that consumes capacity.
+- `401` and `429` responses have stable bodies and recovery information.
 
-Protect login, credential issuance, expensive rendering, scraping, and write endpoints before public launch.
+Apply abuse controls to login, write, credential issuance, scraping, rendering, and other expensive routes. Add Turnstile only where a human challenge fits the interaction.
 
-Official references: [Workers security model](https://developers.cloudflare.com/workers/reference/security-model/), [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/).
+Official references: [Workers security model](https://developers.cloudflare.com/workers/reference/security-model/), [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [Turnstile](https://developers.cloudflare.com/turnstile/).
 
-## Scheduled, queued, and external work
+## Phase 7: Scheduled, queued, and browser work
 
-Use `ctx.waitUntil()` only for work that can finish after the response without a separate delivery guarantee. Use Queues or Workflows when work must survive retries or long delays.
+Choose the mechanism from the delivery requirement:
 
-For every scheduled or asynchronous handler:
+| Requirement | Mechanism |
+| --- | --- |
+| Finish short non-critical work after a response | `ctx.waitUntil()` |
+| Run work on a time schedule | Cron Trigger |
+| Deliver asynchronous items with retries | Queue |
+| Resume a durable sequence across waits and failures | Workflow |
+| Execute or capture a browser page | Browser Rendering |
 
-- define a stable idempotency key;
+For each handler:
+
+- derive a stable idempotency key;
 - make partial progress recoverable;
-- cap retries and define dead-letter handling where supported;
-- log the event ID, attempt, duration, and outcome;
-- preserve the last valid output when a source is temporarily unavailable;
-- prevent an older deployment or delayed job from overwriting newer data.
+- cap retries and define terminal failure handling;
+- log event ID, attempt, duration, and outcome;
+- preserve the last valid result when temporary failure permits it;
+- prevent delayed work from replacing newer output.
 
-For browser automation, select the Browser Rendering REST API or Workers binding from current limits and runtime needs. Cache expensive render results and set explicit navigation and execution timeouts.
+For Browser Rendering, select the REST API or Worker binding from current runtime and limit requirements. Set navigation and execution timeouts. Cache results when freshness permits it. Test each external target because bot protection and page behavior vary.
 
-Official references: [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/), [Queues delivery guarantees](https://developers.cloudflare.com/queues/reference/delivery-guarantees/), [Browser Rendering](https://developers.cloudflare.com/browser-rendering/).
+Official references: [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/), [Queues delivery guarantees](https://developers.cloudflare.com/queues/reference/delivery-guarantees/), [Workflows](https://developers.cloudflare.com/workflows/), [Browser Rendering](https://developers.cloudflare.com/browser-rendering/).
 
-## Public pages and machine consumers
+## Phase 8: Domains, indexing, and machine interfaces
 
-Pages that need discovery must return useful HTML without client execution. Give each canonical page a unique title, description, canonical URL, social metadata, and content-specific structured data. Return a real `404` for an unknown entity.
+Map each host to one environment. Keep production and staging resources separate. Give staging responses an `X-Robots-Tag: noindex` header and a restrictive `robots.txt`.
 
-Publish a sitemap and `robots.txt` for the production host. Send `X-Robots-Tag: noindex` and a restrictive robots policy from staging.
+Pages that need discovery must return useful HTML without client execution. Each canonical page needs:
+
+- a unique title and description;
+- a canonical URL;
+- social preview metadata and an image;
+- content-specific structured data;
+- internal links that make the page reachable;
+- a real `404` response for an unknown entity.
+
+Production must publish an intentional `robots.txt` and sitemap. Verify raw HTML and response status with an HTTP client.
 
 For a public API or agent surface:
 
-- use stable field names and documented error shapes;
-- include provenance and terms with exported data when attribution must survive copying;
-- define CORS from the intended caller model;
-- publish `llms.txt` when it gives machine users a useful map;
-- expose MCP only when tools provide a better task interface than the existing API.
+- keep field names and error shapes stable;
+- document authentication, limits, and terms;
+- include provenance with exported data when attribution must survive copying;
+- set CORS from the intended caller model;
+- publish `llms.txt` when it provides a useful machine-readable map;
+- add MCP only when tools offer a better task interface than the API.
 
-Test the raw HTTP response with JavaScript disabled.
+Official references: [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/), [Static Assets routing](https://developers.cloudflare.com/workers/static-assets/routing/), [Cloudflare Agents MCP](https://developers.cloudflare.com/agents/model-context-protocol/).
 
-## Observability
+## Phase 9: Observability and analytics
 
 Separate operational signals from product signals.
 
-- Use structured Workers logs for request and job diagnosis.
-- Include a request or event ID, route, duration, outcome, and safe error code.
-- Redact credentials, session values, and personal data.
-- Use Analytics Engine or another analytics system for product events and aggregates.
-- Add an external check for the health route and one critical path.
-- Alert on user-visible failure or exhausted capacity, not on every logged error.
+Operational signals:
 
-Remember that a request served before Worker execution might not produce a Worker log. Validate analytics placement against caching behavior.
+- structured logs with request or event ID, route, duration, outcome, and safe error code;
+- redaction of credentials, sessions, payment details, and personal data;
+- a health route that checks only dependencies needed for its stated health level;
+- an external check for health and one critical user path;
+- alerts for sustained user-visible failure or exhausted capacity.
 
-Official references: [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/), [Real-time logs](https://developers.cloudflare.com/workers/observability/logs/real-time-logs/), [Analytics Engine SQL](https://developers.cloudflare.com/analytics/analytics-engine/sql-api/).
+Product signals:
 
-## Payments and entitlements
+- an event allowlist and stable event names;
+- dimensions that answer defined product questions;
+- queries that account for Analytics Engine sampling;
+- client-side measurement when edge caching prevents Worker execution;
+- a retention and privacy policy.
 
-Keep payment collection on a hosted or audited payment surface. Verify each callback signature from the raw request body. Process callback IDs idempotently.
+Verification requires one successful request, one controlled failure, and one product event visible in the selected systems.
 
-Store entitlement truth in a system with suitable read-after-write and revocation behavior. A successful payment event grants access; refund, cancellation, dispute, and failed renewal events update or revoke it according to the product policy. Test the complete lifecycle in staging with test credentials.
+Official references: [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/), [Real-time logs](https://developers.cloudflare.com/workers/observability/logs/real-time-logs/), [Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/), [Analytics Engine SQL](https://developers.cloudflare.com/analytics/analytics-engine/sql-api/).
 
-Keep billing credentials in environment-specific secrets. Log provider event IDs and internal outcomes, but not payment details.
+## Phase 10: Payments and entitlements
 
-## Delivery gates
+Use a hosted or audited payment surface so application code does not handle raw card data.
+
+Billing-handler checks:
+
+- Verify the provider signature against the raw request body.
+- Deduplicate by provider event ID.
+- Keep payment and webhook credentials in environment-specific secrets.
+- Log event IDs and safe internal outcomes, not payment details.
+- Make entitlement updates safe under retries and out-of-order delivery.
+
+Model the complete lifecycle: initial payment, renewal, payment failure, cancellation, refund, dispute, and revocation. Store entitlement truth in a service that provides the required read and revocation behavior.
+
+Test the lifecycle in staging with provider test credentials. Include an unpaid or failed path, repeated callbacks, and a revoked entitlement.
+
+## Phase 11: Tests, CI, migrations, and staging
 
 ### Local gate
 
-- Configuration validates with the installed Wrangler version.
-- Generated types, static checks, and automated tests pass.
-- External parsers use safe, redacted fixtures and test malformed input.
-- Migration apply and rollback or forward-fix behavior is understood.
+- Effective configuration validates with the installed Wrangler version.
+- Generated binding types are current.
+- Static checks and automated tests pass.
+- External parsers use safe, redacted fixtures and reject malformed or implausible results.
+- Migration order and rollback or forward-fix behavior are understood.
+- A Wrangler build or dry run succeeds.
 - The diff contains no credential values or unintended public assets.
+
+### CI gate
+
+- CI runs deterministic checks without production credentials.
+- Deployment uses a reviewed commit, not uncommitted output.
+- Staging migrations run before code that requires them receives traffic.
+- A failed staging smoke check stops promotion.
 
 ### Staging gate
 
-- The deployed commit is the candidate intended for production.
-- Stateful bindings and secrets resolve to staging resources.
-- Health, critical path, authentication, cache, and failure checks pass.
-- Logs contain the expected test events and no new unsafe data.
+- The deployed commit is the intended production candidate.
+- Bindings and secrets resolve to staging resources.
+- Health and one critical path pass against the deployed host.
+- Changed authentication, cache, background, billing, and failure paths pass where applicable.
+- Logs contain the expected tests and no unsafe data.
 - Staging cannot be indexed as production content.
 
-### Production gate
+Official references: [Workers CI/CD](https://developers.cloudflare.com/workers/ci-cd/), [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/), [Wrangler deploy](https://developers.cloudflare.com/workers/wrangler/commands/#deploy).
 
-- Required approval is recorded before the production write.
-- The verified commit is promoted without an unreviewed rebuild or code change.
+## Phase 12: Production release and operation
+
+### Release gate
+
+- Required approval covers the production write and its deployment effect.
+- The verified staging commit is the commit being promoted.
+- Production resources, routes, and secret names are correct.
 - Migrations run in the planned order.
-- Live behavior and affected metrics are checked after propagation.
-- Rollback or forward-fix ownership is clear.
+- Rollback or forward-fix steps and ownership are clear.
 
-Official references: [Cloudflare Workers CI/CD](https://developers.cloudflare.com/workers/ci-cd/), [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/), [Wrangler deploy](https://developers.cloudflare.com/workers/wrangler/commands/#deploy).
+### Live verification
+
+- Allow expected propagation time.
+- Check the production health route and critical path.
+- Confirm the changed cache, identity, indexing, billing, or background behavior.
+- Inspect operational signals and affected product metrics.
+- Send a test alert when alert delivery changed.
+
+Report these states separately:
+
+1. local implementation and checks;
+2. commit and publication state;
+3. staging deployment and evidence;
+4. production deployment and evidence;
+5. deferred controls with the condition that activates each one.
+
+A successful Git operation is not production evidence. A successful deployment command is not live-behavior evidence.

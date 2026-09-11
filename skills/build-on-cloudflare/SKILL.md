@@ -8,81 +8,117 @@ metadata:
 
 # Build on Cloudflare
 
-Build a small, deployable path first. Add each Cloudflare product only when an application invariant requires it.
+Build the smallest complete product path. Add a Cloudflare service only when a product invariant selects it.
 
-Read the relevant sections of [REFERENCE.md](REFERENCE.md) before you select services or write configuration.
+Use [REFERENCE.md](REFERENCE.md) for decisions, commands, checks, and official documentation.
 
-## 1. Establish the delivery target
+## Choose the route
 
-Inspect the repository, its instructions, package scripts, Wrangler configuration, and current deployment workflow. Determine:
+- **Full build:** Run all 12 phases in order.
+- **Focused change:** Select the phases that own the change, inspect their prerequisites, and run Phase 11. Run Phase 12 only when a production release is in scope and authorized.
 
-- the product surface: site, application, API, scheduled process, or a combination;
-- the rendering model: static, server-rendered, interactive, or API-only;
-- the environments and their release order;
-- the data, consistency, retention, and latency requirements;
-- the authentication, abuse, privacy, indexing, and billing boundaries.
+For every phase, record the decision, implementation, verification evidence, and deferred work. Mark an optional phase as `not applicable` with a reason. A phase is complete only when its exit condition is true.
 
-Ask focused questions for decisions that the repository and request do not answer. This step is complete when each item has an explicit answer or is marked out of scope.
+## Foundation
 
-## 2. Select the minimum architecture
+### Phase 1: Define the product boundary
 
-Choose the application shape and one service for each data invariant. Use the decision tables in `REFERENCE.md`.
+Inspect repository instructions, current behavior, deployment state, and package scripts. Define the users, product surfaces, rendering needs, domain plan, privacy boundary, indexing needs, and commercial model.
 
-Keep bindings at the application composition root. Pass domain-focused services into inner modules instead of passing the complete Worker environment.
+Resolve missing decisions with focused questions. Keep out-of-scope work explicit.
 
-For each selected service, state:
+**Exit condition:** Each product concern has a decision or a documented exclusion.
 
-1. the requirement that selects it;
-2. the data or work it owns;
-3. its failure and consistency behavior;
-4. its separate staging and production resources.
+### Phase 2: Select the runtime and scaffold
 
-This step is complete when every service has a stated reason and no two services own the same source of truth.
+Choose static assets, a direct Worker, or a framework with supported server rendering. Prefer an official Cloudflare starter for a new project and preserve established conventions in an existing project.
 
-## 3. Build a vertical slice
+Keep public files in an explicit asset directory. Keep bindings at the composition root and pass narrow services into inner modules. Build one request-to-response path before broad infrastructure work.
 
-For a new project, use an official Cloudflare starter that fits the selected rendering model. For an existing project, preserve its framework and conventions.
+**Exit condition:** A representative path runs locally and the selected runtime has a stated reason.
 
-Build one path from request to response:
+### Phase 3: Isolate configuration and secrets
 
-- commit Wrangler configuration and resource bindings;
-- isolate staging resources from production resources;
-- create schema changes as migrations;
-- declare secret names in configuration when the installed Wrangler version supports it;
-- store secret values with Wrangler secrets and local ignored environment files;
-- return typed, stable responses at the public boundary.
+Use Wrangler configuration as the deployment source of truth. Define development, staging, and production behavior. Give stateful environments separate resources, routes, and secret values.
 
-Use the installed Wrangler version and its generated schema as the authority for configuration fields. This step is complete when the slice runs locally with representative data and has an automated check.
+Generate binding types. Store secret values through Wrangler secrets or ignored local files. Use the installed Wrangler schema as the authority for configuration fields.
 
-## 4. Add operational controls
+**Exit condition:** Effective configuration and binding ownership are known for every active environment, and no secret value is committed.
 
-Apply only the controls required by the active product branches:
+## Platform
 
-- public caching and explicit private response rules;
-- session validation, authorization, origin checks, and abuse limits;
-- idempotency for queues, scheduled jobs, billing callbacks, and retries;
-- structured logs, health checks, and product metrics;
-- complete server-rendered metadata for pages that must be indexed;
-- stable API documentation and attribution fields for machine consumers.
+### Phase 4: Assign data and work ownership
 
-Test the failure path for each control. This step is complete when a failed dependency, invalid identity, repeated event, and stale response each have an intentional outcome where applicable.
+Inventory each record, blob, cache, coordination boundary, event, and long-running operation. Select a service from its consistency, query, retention, and delivery requirements.
 
-## 5. Verify the release candidate
+Create schema changes as migrations. Define idempotency, recovery, and separate staging resources. Keep one source of truth for each kind of data.
 
-Run the repository checks. Include type generation, type checks, tests, migration checks, and a Wrangler build or dry run when the project supports them.
+**Exit condition:** Every stateful concern has one owner, one required guarantee, and one tested failure outcome.
 
-After required approval, deploy the candidate to staging. Verify the deployed system, not only the command result:
+### Phase 5: Design caching and freshness
 
-- exercise the health route and one critical user path;
-- confirm staging uses staging resources and secrets;
-- inspect logs for the test requests;
-- confirm cache, authentication, robots, and error behavior as applicable;
-- run pending migrations before code that depends on them receives traffic.
+Classify responses as private, public dynamic content, immutable assets, or cacheable API data. Define cache keys, browser and edge lifetimes, invalidation, and stale-data behavior.
 
-This step is complete when evidence from staging covers every changed boundary.
+Verify cache behavior through deployed response headers and repeated requests. Treat invalidation as part of the authoritative write.
 
-## 6. Release and report
+**Exit condition:** No private variant can enter a shared cache, and every cached response has a freshness and invalidation rule.
 
-Promote the same verified commit through the repository's release workflow. Obtain explicit approval before a production write when the operating environment requires it.
+### Phase 6: Add identity and abuse controls
 
-After release, verify the production behavior and affected metrics. Report local completion, staging verification, and production verification as separate states. List deferred controls and the condition that will make each one necessary.
+Define authentication, session or credential storage, authorization, origin validation, revocation, and rate limits. Use an established identity protocol or provider.
+
+Protect login, write, credential issuance, scraping, and expensive compute paths. Test invalid identity, insufficient permission, revoked access, and excess traffic.
+
+**Exit condition:** Each protected action has explicit identity, authorization, revocation, and abuse behavior.
+
+### Phase 7: Make background and external work reliable
+
+Select `waitUntil`, Cron Triggers, Queues, Workflows, or Browser Rendering from the required delivery and execution behavior.
+
+Make retries and repeated events safe. Define timeouts, retry limits, dead-letter or recovery behavior, and stale-result policy. Cache expensive external work when its freshness permits it.
+
+**Exit condition:** Interrupted, delayed, duplicated, and failed work each has an intentional outcome.
+
+## Surface
+
+### Phase 8: Configure domains and discovery surfaces
+
+Attach production and staging hosts to the correct environments. Prevent staging content from indexing.
+
+For public pages, return useful server-rendered HTML, canonical metadata, structured data, real not-found responses, robots policy, and a sitemap. For machine consumers, define stable APIs, provenance, terms, CORS, `llms.txt`, and MCP only where they add value.
+
+**Exit condition:** Human, crawler, and machine-consumer responses are correct without relying on unintended client behavior.
+
+### Phase 9: Add observability and product analytics
+
+Emit structured, redacted operational logs. Add health checks, request or event identifiers, product events, useful queries, external checks, and alerts for user-visible failure.
+
+Account for traffic served before Worker execution when you choose where to measure an event.
+
+**Exit condition:** A test request and a test failure can be found in operational signals, and a critical product event can be found in analytics.
+
+### Phase 10: Connect payments and entitlements
+
+Run this phase only for a paid product. Keep payment collection on a hosted or audited surface. Verify callbacks from the raw request body and process provider event IDs idempotently.
+
+Model entitlement grant, renewal, cancellation, refund, dispute, payment failure, and revocation. Test the full lifecycle with staging credentials.
+
+**Exit condition:** Repeated and out-of-order billing events converge on the intended entitlement state.
+
+## Release
+
+### Phase 11: Prove the release candidate in staging
+
+Run generated types, static checks, tests, migration checks, and a Wrangler build or dry run. Use safe fixtures for external inputs and scan the diff for credentials and unintended public files.
+
+After required approval, deploy the candidate to staging. Verify resource isolation, migrations, health, the critical path, changed failure paths, logs, cache behavior, authentication, and indexing controls as applicable.
+
+**Exit condition:** Evidence from the deployed staging commit covers every changed boundary.
+
+### Phase 12: Release and operate production
+
+Obtain required production approval. Promote the same verified commit through the repository workflow, run migrations in the planned order, and observe the release.
+
+Verify live behavior and affected metrics after propagation. Keep rollback or forward-fix ownership clear. Report local completion, staging verification, production verification, and deferred controls as separate states.
+
+**Exit condition:** Production behavior is verified, operational ownership is clear, and the final report distinguishes every delivery state.
